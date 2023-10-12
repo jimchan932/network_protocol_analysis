@@ -1,0 +1,106 @@
+#include "sha1.h"
+#include "sha2.h"
+#include <cstdio>
+#include <cstdlib>
+#include <sys/stat.h>
+#include <cctype>
+#include <set>
+#include <cstring>
+#include <functional>
+#include <string>
+/*
+struct strless : public std::binary_function<const char* ,const char*, bool>
+{
+    bool operator()(const char* s1, const char* s2) const
+    {
+	return strcmp(s1, s2) < 0;
+    }
+};
+*/
+unsigned char directBitmap[2] = {0};
+
+int insert(const char *msg/*, int directBitmapSize*/)
+{
+    /*
+    sha1_ctx ctx1;
+
+    int msg_byte_len = strlen(msg);
+    char *hash1 = NULL;
+    sha1(&ctx1, (byte*)msg, msg_byte_len, &hash1);
+    */
+    int msg_byte_len = strlen(msg);
+    unsigned char *hash1 = NULL;	
+    sha256_context ctx1;
+    sha256_initContext(&ctx1);
+    sha256_update(&ctx1, (byte *)msg, msg_byte_len);
+    sha256_digest(&ctx1, &hash1);
+    //printf(hash1);
+    unsigned int bit_location =  hash1[0] & 0x0f; 
+    unsigned int index = bit_location / 8;
+    unsigned int bitIndex = bit_location % 8;
+    free(hash1);
+    if(directBitmap[index] >> bitIndex)
+    {
+	// has Collision	
+	return 0;
+    }
+    
+    directBitmap[index] = directBitmap[index] | (1 << bitIndex);
+    return 1;
+}
+
+void printMap()
+{
+    for(int i = 0; i < 2; i++)
+    {
+	
+	for(int shift_amt = 0; shift_amt < 8; shift_amt++)
+	{
+	    printf("%d",(directBitmap[i] >> shift_amt) & 0x01);
+	}
+	printf("\n");
+    }
+}
+
+const char* filename = "flow_list.txt";
+ 
+int main(int argc, char *argv[])
+{
+    FILE *in_file = fopen(filename, "r");
+    if (!in_file) 
+    {
+        perror("fopen");
+        return 0;
+    }
+ 
+    struct stat sb;
+    if (stat(filename, &sb) == -1) {
+        perror("stat");
+        return 0;
+    }
+ 
+    char *flow_str = (char *) malloc(sb.st_size);
+    int i = 1;
+
+
+    std::set<std::string,std::greater<std::string> > flowSet;
+    while (fscanf(in_file, "%[^\n] ", flow_str) != EOF) 
+    {
+	//printf("%s\n", flow_str);
+	flowSet.insert(std::string(flow_str));
+    }
+    int num_collisions = 0;
+    printf("Number of flows = %d\n", flowSet.size());
+    for(auto i : flowSet)
+    {
+	int flag = insert(const_cast<char *>(i.c_str()));
+	if(!flag)
+	    num_collisions++;
+    }
+    printf("Size of bitmap = 4096 bit\n");
+    printf("Number of collisions: %d\n", num_collisions);
+    printMap();
+    fclose(in_file);
+    
+    return 0;
+}

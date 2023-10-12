@@ -1,0 +1,20 @@
+
+packets = rdpcap('packet.pcapng')
+
+packet_length_list = []
+
+seq_counter = 0
+flow_batch_size = 12
+num_samples_per_batch = 3
+sampledPackets = []
+
+sample_batch = []
+for pkt in packets:
+    if seq_counter == flow_batch_size:
+        sample_index_list = random.sample(range(0, flow_batch_size), num_samples_per_batch)
+        for i in range(0, num_samples_per_batch):
+            sampledPackets.append(sample_batch[sample_index_list[i]])
+        seq_counter = 0
+        sample_batch = []
+    sample_batch.append(pkt)
+    seq_counter = seq_counter + 1
